@@ -51,7 +51,13 @@ class Curl{
         return $data;
     }
 
-    public function getCookie($cookieName,$cookieSavePath){
+
+    /*
+     * 获得服务器返回的cookie
+     * param array $cookieName cookie名称
+     * param string $cookiesavePath cookie存储路径 默认存储当前目录
+     * */
+    public function getCookie($cookieName=array(),$cookieSavePath='./'){
         curl_setopt($this->ch, CURLOPT_HEADER, 1);
         curl_setopt($this->ch, CURLOPT_RETURNTRANSFER, true);
         $data = $this->exec();
@@ -65,7 +71,7 @@ class Curl{
                   $AlreadyGetCookie=$AlreadyGetCookie.';'.$v;
             }
         }
-        file_put_contents('cookie.txt',$AlreadyGetCookie);
+        file_put_contents($cookieSavePath.'cookie.txt',$AlreadyGetCookie);
     }
 
 }

@@ -1,18 +1,33 @@
 <?php
 require 'Curl.class.php';
 require 'SqlHelper.class.php';
-$sqlHelper=new SqlHelper();
-global $start_time;
+$sqlHelper=new SqlHelper();//创建数据连接对象
+global $start_time;//记录抓取一本小说的起始时间
 global $book_id;
-$book_id=2073;
+$book_id=0;//存入数据库小说的起始id值
+global $jishu;
+$jishu=0;
+
+
+/*
+ * 获得每本小说的章节内容
+ * param int $next_id 当前小说下一章节的id值
+ * param resource $sqlHelper 数据库连接资源
+ * param string $book_author 小说作者名称
+ *  */
 function getData($next_id,$sqlHelper,$book_author){
     global $start_time;
     global $book_id;
+    global $jishu;
     $curl = new Curl("http://m.xxsy.net/Service/ServiceMethod?requestData=%7B%22Method%22%3A%22chapter_getdetail%22%2C%22Parameters%22%3A%7B%22userid%22%3A0%2C%22chapterid%22%3A{$next_id}%2C%22notdefault%22%3A1%2C%22stat_page%22%3A%221_reading_p3%22%7D%7D");
     $curl->setGetOpt(true, '', '');
     $resData = json_decode($curl->exec());
     @$title = $resData->ChpterHttpDetail->Data->Title;
     @$content = $resData->ChpterHttpDetail->Data->Content;
+    $content=trim($content);
+    if(substr($content,0,3)!='<p>'){
+        $content.='<p>';
+    }
     $len = mb_strlen($content, 'UTF-8');
     $addtime = date('Y-m-d H:i:s');
     $is_vip=0;
@@ -21,19 +36,27 @@ function getData($next_id,$sqlHelper,$book_author){
     $res=$sqlHelper->dml($sql);
     if($res){
         if($next_id==0){
+            $jishu++;
             $use_time=microtime(true)-$start_time;
             echo 'use '.$use_time.'s'."\r\n";
-            echo 'the one curl over!!!!!!! next ...'."\r\n";
+            echo "the {$jishu} article curl over!!!!!!! curl next ..."."\r\n";
             return;
         }
-        getData($next_id,$sqlHelper,$book_author);
+        getData($next_id,$sqlHelper,$book_author);//递归获取小说内容
     }elseif($res==0){
-        echo 'exception';
+        echo 'exception！！';//如遇数据库插入错误 退出程序运行 输出exception！
         echo $next_id;
         exit;
     }
 }
 
+
+/*
+ *获取小说的详情
+ *@param resource $sqlHelper 数据库连接资源
+ *@param int $xxbookid 网站上面的小说id
+ *@param int $next_id 小说章节的起始id值
+ * */
 function getDetail($sqlHelper,$xxbookid,$next_id){
 //    global $next_id;
     global $book_id;
@@ -85,6 +108,13 @@ function getDetail($sqlHelper,$xxbookid,$next_id){
         exit;
     }
 }
+
+/*
+ *
+ * 获取小说第一章的起始id值
+ * @param int $xxbook_id 网站的小说id
+ * @param resource $sqlHelper 数据库连接资源
+ * */
 function getFirstId($xxbook_id,$sqlHelper){
     $curl=new Curl("http://m.xxsy.net/Page/Content?stat_page=1_reading_p3&bookid={$xxbook_id}");
     $curl->setGetOpt(true,'','');
@@ -96,6 +126,12 @@ function getFirstId($xxbook_id,$sqlHelper){
         getDetail($sqlHelper,$xxbook_id,$firstId);
     }
 }
+
+/*
+ * 开始获取操作
+ * @param int $xxbook_id 网站上面定义的小说id值
+ * @param resource $sqlHelper 数据库连接资源
+ */
 function core_exec($xxbook_id,$sqlHelper){
      getFirstId($xxbook_id,$sqlHelper);
 }
@@ -105,6 +141,10 @@ function core_exec($xxbook_id,$sqlHelper){
 //}
 
 
+/*
+ * @param int $index 抓取小说的html页面
+ * @param resource $sqlHelper 数据库连接资源
+ */
 function getXXbookId($index,$sqlHelper){
     global $book_id;
     global $start_time;
@@ -122,7 +162,11 @@ function getXXbookId($index,$sqlHelper){
 
 }
 
-
+/*
+ * 获取当前页面的所有的免费完结的小说
+ * @param int $index 当前目录分页值
+ * @param resource $sqlHelper 数据库连接资源
+ */
 function getOKXXbookId($index,$sqlHelper){
     global $book_id;
     global $start_time;
@@ -140,6 +184,10 @@ function getOKXXbookId($index,$sqlHelper){
     }
 
 }
-for($i=10;$i<50;$i++){
+
+/*
+ * 循环遍历0-50个页面的免费完结小说
+ */
+for($i=0;$i<50;$i++){
     getOKXXbookId($i,$sqlHelper);
 }
